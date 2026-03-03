@@ -90,6 +90,45 @@ export default function Settings() {
               onChange={e => setLocalSettings({...localSettings, name: e.target.value})} 
             />
           </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-gray-400 mb-1 block">Altura (cm)</label>
+              <Input 
+                type="number"
+                value={localSettings.height || ''} 
+                onChange={e => setLocalSettings({...localSettings, height: parseInt(e.target.value) || 0})} 
+                placeholder="Ex: 175"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 mb-1 block">Idade</label>
+              <Input 
+                type="number"
+                value={localSettings.age || ''} 
+                onChange={e => setLocalSettings({...localSettings, age: parseInt(e.target.value) || 0})} 
+                placeholder="Ex: 30"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-400 mb-1 block">Gênero (para cálculo de TMB)</label>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setLocalSettings({...localSettings, gender: 'male'})}
+                className={`flex-1 p-2 rounded-lg border ${localSettings.gender === 'male' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-white/5 border-white/10 text-gray-400'}`}
+              >
+                Masculino
+              </button>
+              <button 
+                onClick={() => setLocalSettings({...localSettings, gender: 'female'})}
+                className={`flex-1 p-2 rounded-lg border ${localSettings.gender === 'female' ? 'bg-pink-500/20 border-pink-500 text-pink-400' : 'bg-white/5 border-white/10 text-gray-400'}`}
+              >
+                Feminino
+              </button>
+            </div>
+          </div>
         </div>
       </Card>
 

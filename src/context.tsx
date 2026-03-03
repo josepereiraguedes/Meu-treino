@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AppState, Workout, Meal, UserSettings, DailyLog, Exercise } from './types';
 import { generateId } from './utils';
+import { calculateWaterGoal } from './utils/calculations';
 
 const STORAGE_KEY = 'focusfit_data_v1';
 
@@ -77,19 +78,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleWorkoutCompletion = (id: string, date: string) => {
-    setState(prev => ({
-      ...prev,
-      workouts: prev.workouts.map(w => {
-        if (w.id !== id) return w;
-        const isCompleted = w.completedDates.includes(date);
-        return {
-          ...w,
-          completedDates: isCompleted
-            ? w.completedDates.filter(d => d !== date)
-            : [...w.completedDates, date]
-        };
-      })
-    }));
+    setState(prev => {
+      // Find the workout being toggled
+      const workout = prev.workouts.find(w => w.id === id);
+      const isNowCompleted = !workout?.completedDates.includes(date);
+      
+      // Calculate new water goal if settings have weight
+      let newSettings = prev.settings;
+      if (prev.settings.weightGoal) { // Using weightGoal as proxy for current weight if logs empty, ideally use logs
+         // Simple logic: if completed, ensure water goal includes the bonus. 
+         // Real implementation would be more complex with state, but for "smart" feel:
+         const currentWeight = (Object.values(prev.logs) as DailyLog[])
+            .filter(l => l.weight)
+            .sort((a, b) => b.date.localeCompare(a.date))[0]?.weight || prev.settings.weightGoal;
+         
+         const newGoal = calculateWaterGoal(currentWeight, 'moderate', isNowCompleted);
+         
+         // Only update if it's an increase (to avoid reducing if they untoggle by mistake) or strictly dynamic
+         if (isNowCompleted) {
+            newSettings = { ...prev.settings, waterGoal: newGoal };
+         }
+      }
+
+      return {
+        ...prev,
+        settings: newSettings,
+        workouts: prev.workouts.map(w => {
+          if (w.id !== id) return w;
+          const isCompleted = w.completedDates.includes(date);
+          return {
+            ...w,
+            completedDates: isCompleted
+              ? w.completedDates.filter(d => d !== date)
+              : [...w.completedDates, date]
+          };
+        })
+      };
+    });
   };
 
   // --- Meals ---

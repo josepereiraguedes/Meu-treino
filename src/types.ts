@@ -32,6 +32,9 @@ export interface UserSettings {
   waterGoal: number; // ml
   weightGoal: number; // kg
   profileImage?: string; // Base64 or URL
+  height?: number; // cm
+  age?: number;
+  gender?: 'male' | 'female';
 }
 
 export interface DailyLog {
