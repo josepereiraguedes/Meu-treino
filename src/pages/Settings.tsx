@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useApp } from '../context';
 import { Card, Button, Input } from '../components/ui';
 import { Bell, Moon, Trash2, User, Droplets, Target, Save, Camera, Upload } from 'lucide-react';
+import { InstallPWA } from '../components/InstallPWA';
 
 export default function Settings() {
   const { settings, updateSettings, resetData } = useApp();
@@ -47,6 +48,8 @@ export default function Settings() {
   return (
     <div className="pb-20 space-y-6">
       <h1 className="text-2xl font-bold">Ajustes</h1>
+
+      <InstallPWA />
 
       <Card>
         <div className="flex items-center gap-3 mb-6">
