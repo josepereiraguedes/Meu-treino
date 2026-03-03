@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useApp } from '../context';
 import { Card, Button, Input } from '../components/ui';
-import { Plus, Trash2, Clock, Calendar, ChevronDown, ChevronUp, Dumbbell, Save, X } from 'lucide-react';
+import { Plus, Trash2, Clock, Calendar, ChevronDown, ChevronUp, Dumbbell, Save, X, Sparkles } from 'lucide-react';
 import { DAYS_OF_WEEK, generateId } from '../utils';
 import { Workout, Exercise } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { AIGeneratorModal } from '../components/AIGeneratorModal';
 
 export default function Workouts() {
   const { workouts, addWorkout, deleteWorkout, updateWorkout } = useApp();
   const [isCreating, setIsCreating] = useState(false);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form State
@@ -77,11 +79,23 @@ export default function Workouts() {
       <header className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Meus Treinos</h1>
         {!isCreating && (
-          <Button onClick={() => setIsCreating(true)} size="sm">
-            <Plus size={18} /> Novo
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 border-none shadow-lg shadow-blue-900/20"
+              onClick={() => setIsAIModalOpen(true)}
+            >
+              <Sparkles size={16} className="mr-1" />
+              IA
+            </Button>
+            <Button onClick={() => setIsCreating(true)} size="sm">
+              <Plus size={18} /> Novo
+            </Button>
+          </div>
         )}
       </header>
+
+      <AIGeneratorModal isOpen={isAIModalOpen} onClose={() => setIsAIModalOpen(false)} />
 
       <AnimatePresence mode="wait">
         {isCreating ? (

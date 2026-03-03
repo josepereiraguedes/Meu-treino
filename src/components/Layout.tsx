@@ -69,15 +69,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       // 1. Check Workouts (30 min before)
       workouts.forEach(workout => {
-        if (workout.day.toLowerCase() === formattedDayName.split('-')[0].toLowerCase()) {
+        // Normalize day names for comparison (remove accents, lowercase)
+        const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        
+        if (normalize(workout.day) === normalize(formattedDayName.split('-')[0])) {
           const [wHour, wMinute] = workout.time.split(':').map(Number);
           const workoutTime = new Date();
           workoutTime.setHours(wHour, wMinute, 0);
           
+          // Calculate difference in minutes
           const diffInMinutes = (workoutTime.getTime() - now.getTime()) / 1000 / 60;
           
           // Notify exactly 30 minutes before (allowing a small window for execution delay)
-          if (diffInMinutes >= 29.5 && diffInMinutes <= 30.5) {
+          if (diffInMinutes >= 29 && diffInMinutes <= 31) {
             new Notification("Hora do Treino! 💪", {
               body: `Seu treino de ${workout.name} começa em 30 minutos! Prepare-se.`,
               icon: '/vite.svg',
