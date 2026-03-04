@@ -1,17 +1,22 @@
 import React, { useState } from 'react';
 import { useApp } from '../context';
 import { Card, Button, Input } from '../components/ui';
-import { Plus, Trash2, Clock, Calendar, ChevronDown, ChevronUp, Dumbbell, Save, X, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Clock, Calendar, ChevronDown, ChevronUp, Dumbbell, Save, X, Calculator } from 'lucide-react';
 import { DAYS_OF_WEEK, generateId } from '../utils';
 import { Workout, Exercise } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { AIGeneratorModal } from '../components/AIGeneratorModal';
+import { calculateOneRepMax } from '../utils/calculations';
 
 export default function Workouts() {
   const { workouts, addWorkout, deleteWorkout, updateWorkout } = useApp();
   const [isCreating, setIsCreating] = useState(false);
-  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Calculator State
+  const [calcWeight, setCalcWeight] = useState('');
+  const [calcReps, setCalcReps] = useState('');
+  const oneRepMax = (calcWeight && calcReps) ? calculateOneRepMax(parseFloat(calcWeight), parseInt(calcReps)) : 0;
 
   // Form State
   const [name, setName] = useState('');
@@ -82,11 +87,10 @@ export default function Workouts() {
           <div className="flex gap-2">
             <Button 
               size="sm" 
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 border-none shadow-lg shadow-blue-900/20"
-              onClick={() => setIsAIModalOpen(true)}
+              variant="secondary"
+              onClick={() => setIsCalculatorOpen(true)}
             >
-              <Sparkles size={16} className="mr-1" />
-              IA
+              <Calculator size={16} />
             </Button>
             <Button onClick={() => setIsCreating(true)} size="sm">
               <Plus size={18} /> Novo
@@ -95,7 +99,68 @@ export default function Workouts() {
         )}
       </header>
 
-      <AIGeneratorModal isOpen={isAIModalOpen} onClose={() => setIsAIModalOpen(false)} />
+      {/* 1RM Calculator Modal */}
+      <AnimatePresence>
+        {isCalculatorOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#1C1C22] w-full max-w-sm rounded-2xl border border-white/10 p-6 shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold flex items-center gap-2">
+                  <Calculator size={20} className="text-blue-500" />
+                  Calculadora 1RM
+                </h2>
+                <button onClick={() => setIsCalculatorOpen(false)} className="text-gray-400 hover:text-white">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Carga (kg)</label>
+                    <Input type="number" value={calcWeight} onChange={e => setCalcWeight(e.target.value)} placeholder="Ex: 60" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Repetições</label>
+                    <Input type="number" value={calcReps} onChange={e => setCalcReps(e.target.value)} placeholder="Ex: 8" />
+                  </div>
+                </div>
+
+                <div className="bg-white/5 rounded-xl p-4 text-center">
+                  <div className="text-xs text-gray-400 mb-1">Estimativa de 1 Repetição Máxima</div>
+                  <div className="text-3xl font-bold text-white">{oneRepMax} <span className="text-sm font-normal text-gray-500">kg</span></div>
+                </div>
+
+                {oneRepMax > 0 && (
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-black/20 p-2 rounded-lg">
+                      <div className="text-xs text-gray-500">90%</div>
+                      <div className="font-bold">{Math.round(oneRepMax * 0.9)}kg</div>
+                    </div>
+                    <div className="bg-black/20 p-2 rounded-lg">
+                      <div className="text-xs text-gray-500">70%</div>
+                      <div className="font-bold">{Math.round(oneRepMax * 0.7)}kg</div>
+                    </div>
+                    <div className="bg-black/20 p-2 rounded-lg">
+                      <div className="text-xs text-gray-500">50%</div>
+                      <div className="font-bold">{Math.round(oneRepMax * 0.5)}kg</div>
+                    </div>
+                  </div>
+                )}
+                
+                <p className="text-[10px] text-gray-500 text-center mt-2">
+                  Baseado na fórmula de Epley. Use apenas como referência.
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence mode="wait">
         {isCreating ? (
@@ -191,6 +256,24 @@ export default function Workouts() {
                             />
                           </div>
                         </div>
+                        <div className="mt-2">
+                          <label className="text-[10px] text-gray-500">Instruções</label>
+                          <Input 
+                            placeholder="Dicas de execução..." 
+                            value={ex.instructions || ''} 
+                            onChange={e => updateExercise(ex.id, 'instructions', e.target.value)}
+                            className="py-1 text-xs"
+                          />
+                        </div>
+                        <div className="mt-2">
+                          <label className="text-[10px] text-gray-500">Link do Vídeo (YouTube/GIF)</label>
+                          <Input 
+                            placeholder="https://..." 
+                            value={ex.videoUrl || ''} 
+                            onChange={e => updateExercise(ex.id, 'videoUrl', e.target.value)}
+                            className="py-1 text-xs"
+                          />
+                        </div>
                       </div>
                     ))}
                     {exercises.length === 0 && (
@@ -265,11 +348,21 @@ function WorkoutCard({ workout, onEdit, onDelete }: { workout: Workout, onEdit: 
             exit={{ height: 0, opacity: 0 }}
             className="bg-black/20 border-t border-white/5 px-5 overflow-hidden"
           >
-            <div className="py-4 space-y-2">
+            <div className="py-4 space-y-4">
               {workout.exercises.map((ex, i) => (
-                <div key={i} className="flex justify-between text-sm text-gray-300 border-b border-white/5 last:border-0 pb-2 last:pb-0">
-                  <span>{ex.sets}x {ex.name}</span>
-                  <span className="text-gray-500">{ex.reps} reps • {ex.weight}kg</span>
+                <div key={i} className="text-sm text-gray-300 border-b border-white/5 last:border-0 pb-3 last:pb-0">
+                  <div className="flex justify-between font-medium mb-1">
+                    <span>{ex.sets}x {ex.name}</span>
+                    <span className="text-gray-500">{ex.reps} reps • {ex.weight}kg</span>
+                  </div>
+                  {ex.instructions && (
+                    <p className="text-xs text-gray-500 italic mb-1">{ex.instructions}</p>
+                  )}
+                  {ex.videoUrl && (
+                    <a href={ex.videoUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline flex items-center gap-1">
+                      Ver execução
+                    </a>
+                  )}
                 </div>
               ))}
               

@@ -4,8 +4,10 @@ import { Card, Button, Input } from '../components/ui';
 import { Bell, Moon, Trash2, User, Droplets, Target, Save, Camera, Upload } from 'lucide-react';
 import { InstallPWA } from '../components/InstallPWA';
 
+import { getRoutineForActivityLevel } from '../utils/routines';
+
 export default function Settings() {
-  const { settings, updateSettings, resetData } = useApp();
+  const { settings, updateSettings, resetData, setRoutine } = useApp();
   const [localSettings, setLocalSettings] = React.useState(settings);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -17,6 +19,15 @@ export default function Settings() {
   const handleSave = () => {
     updateSettings(localSettings);
     alert('Configurações salvas com sucesso!');
+  };
+
+  const handleGenerateRoutine = () => {
+    if (confirm(`Deseja gerar uma nova rotina baseada no nível "${localSettings.activityLevel}"? Isso substituirá seus treinos e refeições atuais.`)) {
+      const { workouts, meals } = getRoutineForActivityLevel(localSettings.activityLevel);
+      setRoutine(workouts, meals);
+      updateSettings({ activityLevel: localSettings.activityLevel });
+      alert('Rotina gerada com sucesso! Verifique as abas de Treinos e Alimentação.');
+    }
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,6 +104,15 @@ export default function Settings() {
           
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <label className="text-xs text-gray-400 mb-1 block">Peso Atual (kg)</label>
+              <Input 
+                type="number"
+                value={localSettings.currentWeight || ''} 
+                onChange={e => setLocalSettings({...localSettings, currentWeight: parseFloat(e.target.value) || 0})} 
+                placeholder="Ex: 75"
+              />
+            </div>
+            <div>
               <label className="text-xs text-gray-400 mb-1 block">Altura (cm)</label>
               <Input 
                 type="number"
@@ -110,6 +130,40 @@ export default function Settings() {
                 placeholder="Ex: 30"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-400 mb-1 block">Nível de Atividade</label>
+            <select 
+              className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500"
+              value={localSettings.activityLevel || 'moderate'}
+              onChange={e => {
+                const newLevel = e.target.value as any;
+                setLocalSettings({...localSettings, activityLevel: newLevel});
+                
+                // Update routine immediately as requested
+                const { workouts, meals } = getRoutineForActivityLevel(newLevel);
+                setRoutine(workouts, meals);
+                updateSettings({ activityLevel: newLevel });
+              }}
+            >
+              <option value="sedentary" className="bg-gray-900">Sedentário (Pouco ou nenhum exercício)</option>
+              <option value="light" className="bg-gray-900">Leve (Exercício leve 1-3 dias/semana)</option>
+              <option value="moderate" className="bg-gray-900">Moderado (Exercício moderado 3-5 dias/semana)</option>
+              <option value="active" className="bg-gray-900">Ativo (Exercício pesado 6-7 dias/semana)</option>
+              <option value="very_active" className="bg-gray-900">Muito Ativo (Exercício muito pesado + trabalho físico)</option>
+            </select>
+            <p className="text-[10px] text-gray-500 mt-1">
+              Ao alterar o nível, sua rotina de treinos e dieta será atualizada automaticamente.
+            </p>
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              className="mt-2 w-full text-xs"
+              onClick={handleGenerateRoutine}
+            >
+              Regerar Rotina Sugerida (Substituir Atual)
+            </Button>
           </div>
 
           <div>

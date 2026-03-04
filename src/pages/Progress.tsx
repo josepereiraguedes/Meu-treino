@@ -23,7 +23,7 @@ export default function Progress() {
   });
 
   // Calculate Smart Metrics
-  const currentWeight = (Object.values(logs) as any[])
+  const currentWeight = settings.currentWeight || (Object.values(logs) as any[])
     .filter(l => l.weight)
     .sort((a, b) => b.date.localeCompare(a.date))[0]?.weight || settings.weightGoal;
 

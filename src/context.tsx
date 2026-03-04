@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AppState, Workout, Meal, UserSettings, DailyLog, Exercise } from './types';
+import { AppState, Workout, Meal, UserSettings, DailyLog, Exercise, ExerciseLog, Achievement } from './types';
 import { generateId } from './utils';
 import { calculateWaterGoal } from './utils/calculations';
 
@@ -11,20 +11,101 @@ const DEFAULT_SETTINGS: UserSettings = {
   theme: 'dark',
   waterGoal: 2500,
   weightGoal: 70,
+  currentWeight: 75,
+  height: 175,
+  age: 30,
+  gender: 'male',
+  activityLevel: 'moderate',
+  macroGoals: {
+    protein: 150,
+    carbs: 200,
+    fats: 60
+  }
 };
 
 const INITIAL_STATE: AppState = {
   workouts: [],
   meals: [
-    { id: '1', name: 'Café da Manhã', time: '08:00', description: 'Ovos e Aveia', calories: 400, completedDates: [] },
-    { id: '2', name: 'Almoço', time: '13:00', description: 'Frango e Batata Doce', calories: 600, completedDates: [] },
-    { id: '3', name: 'Jantar', time: '20:00', description: 'Peixe e Salada', calories: 500, completedDates: [] },
+    { 
+      id: '1', 
+      name: 'Café da Manhã', 
+      time: '08:00', 
+      description: 'Ovos e Aveia', 
+      calories: 400, 
+      protein: 30,
+      carbs: 40,
+      fats: 15,
+      completedDates: [] 
+    },
+    { 
+      id: '2', 
+      name: 'Almoço', 
+      time: '13:00', 
+      description: 'Frango e Batata Doce', 
+      calories: 600, 
+      protein: 50,
+      carbs: 60,
+      fats: 10,
+      completedDates: [] 
+    },
+    { 
+      id: '3', 
+      name: 'Jantar', 
+      time: '20:00', 
+      description: 'Peixe e Salada', 
+      calories: 500, 
+      protein: 40,
+      carbs: 20,
+      fats: 20,
+      completedDates: [] 
+    },
   ],
   settings: DEFAULT_SETTINGS,
   logs: {},
+  exerciseLogs: [],
+  achievements: [
+    {
+      id: 'first_workout',
+      title: 'Primeiro Passo',
+      description: 'Complete seu primeiro treino.',
+      icon: 'Trophy',
+      condition: (state) => state.workouts.some(w => w.completedDates.length > 0)
+    },
+    {
+      id: 'water_master',
+      title: 'Hidratado',
+      description: 'Beba a meta de água por 3 dias seguidos.',
+      icon: 'Droplets',
+      condition: (state) => {
+        const dates = Object.keys(state.logs).sort();
+        if (dates.length < 3) return false;
+        let streak = 0;
+        for (let i = 0; i < dates.length; i++) {
+          const log = state.logs[dates[i]];
+          if (log.waterIntake >= state.settings.waterGoal) {
+            streak++;
+            if (streak >= 3) return true;
+          } else {
+            streak = 0;
+          }
+        }
+        return false;
+      }
+    },
+    {
+      id: 'strength_builder',
+      title: 'Forte como um Touro',
+      description: 'Complete 10 treinos no total.',
+      icon: 'Dumbbell',
+      condition: (state) => {
+        const totalCompleted = state.workouts.reduce((acc, w) => acc + w.completedDates.length, 0);
+        return totalCompleted >= 10;
+      }
+    }
+  ]
 };
 
-interface AppContextType extends AppState {
+  interface AppContextType extends AppState {
   addWorkout: (workout: Omit<Workout, 'id' | 'completedDates'>) => void;
   updateWorkout: (id: string, workout: Partial<Workout>) => void;
   deleteWorkout: (id: string) => void;
@@ -40,6 +121,8 @@ interface AppContextType extends AppState {
   logWater: (date: string, amount: number) => void;
   logWeight: (date: string, weight: number) => void;
   
+  setRoutine: (workouts: Workout[], meals: Meal[]) => void;
+
   resetData: () => void;
 }
 
@@ -48,12 +131,55 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : INITIAL_STATE;
+    // Merge stored state with initial structure to ensure new fields exist
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        ...INITIAL_STATE,
+        ...parsed,
+        // Ensure achievements are merged correctly (keep definitions, update status)
+        achievements: INITIAL_STATE.achievements.map(a => {
+            const storedAchievement = parsed.achievements?.find((sa: Achievement) => sa.id === a.id);
+            return storedAchievement ? { ...a, unlockedAt: storedAchievement.unlockedAt } : a;
+        }),
+        // Ensure new fields exist if they were missing in old data
+        exerciseLogs: parsed.exerciseLogs || [],
+        settings: { ...DEFAULT_SETTINGS, ...parsed.settings }
+      };
+    }
+    return INITIAL_STATE;
   });
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  // Check Achievements
+  useEffect(() => {
+    let changed = false;
+    const newAchievements = state.achievements.map(achievement => {
+      if (!achievement.unlockedAt && achievement.condition(state)) {
+        changed = true;
+        // In a real app, we'd use a toast notification system here
+        // alert(`🏆 Conquista Desbloqueada: ${achievement.title}!`); 
+        return { ...achievement, unlockedAt: new Date().toISOString() };
+      }
+      return achievement;
+    });
+
+    if (changed) {
+      setState(prev => ({ ...prev, achievements: newAchievements }));
+    }
+  }, [state.workouts, state.logs, state.meals]); // Dependencies that trigger achievement checks
+
+  // --- Routine ---
+  const setRoutine = (workouts: Workout[], meals: Meal[]) => {
+    setState(prev => ({
+      ...prev,
+      workouts,
+      meals
+    }));
+  };
 
   // --- Workouts ---
   const addWorkout = (workout: Omit<Workout, 'id' | 'completedDates'>) => {
@@ -85,14 +211,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       
       // Calculate new water goal if settings have weight
       let newSettings = prev.settings;
-      if (prev.settings.weightGoal) { // Using weightGoal as proxy for current weight if logs empty, ideally use logs
-         // Simple logic: if completed, ensure water goal includes the bonus. 
-         // Real implementation would be more complex with state, but for "smart" feel:
-         const currentWeight = (Object.values(prev.logs) as DailyLog[])
+      if (prev.settings.weightGoal || prev.settings.currentWeight) {
+         const currentWeight = prev.settings.currentWeight || (Object.values(prev.logs) as DailyLog[])
             .filter(l => l.weight)
             .sort((a, b) => b.date.localeCompare(a.date))[0]?.weight || prev.settings.weightGoal;
          
-         const newGoal = calculateWaterGoal(currentWeight, 'moderate', isNowCompleted);
+         let waterActivity: 'low' | 'moderate' | 'high' = 'moderate';
+         const level = prev.settings.activityLevel;
+         if (level === 'sedentary' || level === 'light') waterActivity = 'low';
+         else if (level === 'active' || level === 'very_active') waterActivity = 'high';
+
+         const newGoal = calculateWaterGoal(currentWeight, waterActivity, isNowCompleted);
          
          // Only update if it's an increase (to avoid reducing if they untoggle by mistake) or strictly dynamic
          if (isNowCompleted) {
@@ -100,9 +229,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
          }
       }
 
+      // Log exercises if completed
+      let newExerciseLogs = prev.exerciseLogs;
+      if (isNowCompleted && workout) {
+        const logsToAdd: ExerciseLog[] = workout.exercises.map(ex => ({
+          id: generateId(),
+          date: date,
+          exerciseId: ex.id,
+          exerciseName: ex.name,
+          weight: parseFloat(ex.weight) || 0,
+          reps: ex.reps,
+          sets: ex.sets
+        }));
+        newExerciseLogs = [...prev.exerciseLogs, ...logsToAdd];
+      }
+
       return {
         ...prev,
         settings: newSettings,
+        exerciseLogs: newExerciseLogs,
         workouts: prev.workouts.map(w => {
           if (w.id !== id) return w;
           const isCompleted = w.completedDates.includes(date);
@@ -182,6 +327,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const currentLog = prev.logs[date] || { date, waterIntake: 0 };
       return {
         ...prev,
+        settings: {
+          ...prev.settings,
+          currentWeight: weight
+        },
         logs: {
           ...prev.logs,
           [date]: { ...currentLog, weight }
@@ -210,6 +359,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateSettings,
       logWater,
       logWeight,
+      setRoutine,
       resetData
     }}>
       {children}

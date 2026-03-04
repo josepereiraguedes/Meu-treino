@@ -75,6 +75,33 @@ export default function Dashboard() {
       return (h * 60 + mTime) > currentTimeValue;
     });
 
+  // Daily Insight Logic
+  const getDailyInsight = () => {
+    const hour = new Date().getHours();
+    if (hour < 10) return { 
+      text: "Bom dia! Comece com 500ml de água para ativar o metabolismo.", 
+      icon: <Droplets size={18} className="text-blue-400" />,
+      color: "border-blue-500/30 bg-blue-500/10"
+    };
+    if (hour < 14) return { 
+      text: "Mantenha o foco na dieta. O almoço é crucial para a energia da tarde.", 
+      icon: <Utensils size={18} className="text-green-400" />,
+      color: "border-green-500/30 bg-green-500/10"
+    };
+    if (hour < 18) return { 
+      text: "Hora do treino se aproximando? Prepare seu pré-treino!", 
+      icon: <Flame size={18} className="text-orange-400" />,
+      color: "border-orange-500/30 bg-orange-500/10"
+    };
+    return { 
+      text: "Ótimo trabalho hoje. Descanse bem para recuperar os músculos.", 
+      icon: <Trophy size={18} className="text-purple-400" />,
+      color: "border-purple-500/30 bg-purple-500/10"
+    };
+  };
+
+  const insight = getDailyInsight();
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -93,6 +120,18 @@ export default function Dashboard() {
           </div>
         </Link>
       </header>
+
+      {/* Daily Insight */}
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={cn("p-3 rounded-xl border flex items-center gap-3", insight.color)}
+      >
+        <div className="p-2 bg-black/20 rounded-full">
+          {insight.icon}
+        </div>
+        <p className="text-sm font-medium text-gray-200">{insight.text}</p>
+      </motion.div>
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 gap-4">
@@ -131,6 +170,28 @@ export default function Dashboard() {
           </div>
         </Card>
       </div>
+
+      {/* Quick Access */}
+      <section className="grid grid-cols-2 gap-4">
+        <Link to="/achievements">
+          <Card className="flex flex-col items-center justify-center p-4 hover:bg-white/5 transition-colors cursor-pointer text-center h-full">
+            <div className="p-3 bg-yellow-500/20 rounded-full text-yellow-500 mb-2">
+              <Trophy size={24} />
+            </div>
+            <h3 className="font-bold text-sm">Conquistas</h3>
+            <p className="text-[10px] text-gray-400 mt-1">Veja seus troféus</p>
+          </Card>
+        </Link>
+        <Link to="/exercise-history">
+          <Card className="flex flex-col items-center justify-center p-4 hover:bg-white/5 transition-colors cursor-pointer text-center h-full">
+            <div className="p-3 bg-blue-500/20 rounded-full text-blue-500 mb-2">
+              <Flame size={24} />
+            </div>
+            <h3 className="font-bold text-sm">Histórico de Cargas</h3>
+            <p className="text-[10px] text-gray-400 mt-1">Acompanhe sua evolução</p>
+          </Card>
+        </Link>
+      </section>
 
       {/* Today's Workout */}
       <section>

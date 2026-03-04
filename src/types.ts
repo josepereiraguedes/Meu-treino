@@ -5,6 +5,18 @@ export interface Exercise {
   reps: string;
   weight: string;
   completed: boolean;
+  instructions?: string;
+  videoUrl?: string;
+}
+
+export interface ExerciseLog {
+  id: string;
+  date: string; // ISO date
+  exerciseId: string;
+  exerciseName: string;
+  weight: number;
+  reps: string;
+  sets: number;
 }
 
 export interface Workout {
@@ -22,7 +34,22 @@ export interface Meal {
   time: string;
   description: string;
   calories: number;
+  protein: number; // g
+  carbs: number; // g
+  fats: number; // g
+  ingredients?: string[];
+  instructions?: string;
   completedDates: string[]; // ISO date strings
+}
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string; // Lucide icon name
+  unlockedAt?: string; // ISO date
+  condition: (state: AppState) => boolean;
+  progress?: number; // 0-100
 }
 
 export interface UserSettings {
@@ -31,10 +58,17 @@ export interface UserSettings {
   theme: 'dark' | 'light';
   waterGoal: number; // ml
   weightGoal: number; // kg
+  currentWeight?: number; // kg
   profileImage?: string; // Base64 or URL
   height?: number; // cm
   age?: number;
   gender?: 'male' | 'female';
+  activityLevel?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+  macroGoals?: {
+    protein: number;
+    carbs: number;
+    fats: number;
+  };
 }
 
 export interface DailyLog {
@@ -49,4 +83,6 @@ export interface AppState {
   meals: Meal[];
   settings: UserSettings;
   logs: Record<string, DailyLog>; // Keyed by date
+  exerciseLogs: ExerciseLog[];
+  achievements: Achievement[];
 }
