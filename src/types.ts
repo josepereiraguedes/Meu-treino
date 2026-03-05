@@ -78,6 +78,16 @@ export interface DailyLog {
   notes?: string;
 }
 
+export interface Alarm {
+  id: string;
+  time: string; // "HH:mm"
+  label: string;
+  enabled: boolean;
+  days: number[]; // 0-6 (Sunday-Saturday)
+  soundEnabled: boolean;
+  notificationEnabled: boolean;
+}
+
 export interface AppState {
   workouts: Workout[];
   meals: Meal[];
@@ -85,4 +95,5 @@ export interface AppState {
   logs: Record<string, DailyLog>; // Keyed by date
   exerciseLogs: ExerciseLog[];
   achievements: Achievement[];
+  alarms: Alarm[];
 }

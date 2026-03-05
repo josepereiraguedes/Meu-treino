@@ -1,4 +1,4 @@
-import { Home, Dumbbell, Utensils, BarChart2, Settings } from 'lucide-react';
+import { Home, Dumbbell, Utensils, BarChart2, Settings, Clock } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn, MOTIVATIONAL_QUOTES } from '../utils';
 import React, { useEffect } from 'react';
@@ -14,6 +14,7 @@ export function BottomNav() {
     { icon: Home, label: 'Início', path: '/' },
     { icon: Dumbbell, label: 'Treinos', path: '/workouts' },
     { icon: Utensils, label: 'Dieta', path: '/nutrition' },
+    { icon: Clock, label: 'Alarme', path: '/alarm' },
     { icon: BarChart2, label: 'Progresso', path: '/progress' },
     { icon: Settings, label: 'Ajustes', path: '/settings' },
   ];
@@ -28,12 +29,12 @@ export function BottomNav() {
               key={tab.path}
               to={tab.path}
               className={cn(
-                "flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-300 w-16",
+                "flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-300 w-14",
                 isActive ? "text-[#0A84FF] bg-white/5" : "text-gray-500 hover:text-gray-300"
               )}
             >
-              <tab.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
-              <span className="text-[10px] font-medium mt-1">{tab.label}</span>
+              <tab.icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+              <span className="text-[9px] font-medium mt-1">{tab.label}</span>
             </Link>
           );
         })}

@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { useApp } from '../context';
+import { useToast } from '../context/ToastContext';
 import { Card, Button, Input } from '../components/ui';
-import { Plus, Trash2, Clock, Calendar, ChevronDown, ChevronUp, Dumbbell, Save, X, Calculator } from 'lucide-react';
+import { Plus, Trash2, Clock, Calendar, ChevronDown, ChevronUp, Dumbbell, Save, X, Calculator, Play } from 'lucide-react';
 import { DAYS_OF_WEEK, generateId } from '../utils';
 import { Workout, Exercise } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { calculateOneRepMax } from '../utils/calculations';
+import { ActiveWorkoutOverlay } from '../components/ActiveWorkoutOverlay';
 
 export default function Workouts() {
   const { workouts, addWorkout, deleteWorkout, updateWorkout } = useApp();
+  const { addToast } = useToast();
   const [isCreating, setIsCreating] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
 
   // Calculator State
   const [calcWeight, setCalcWeight] = useState('');
@@ -34,7 +38,10 @@ export default function Workouts() {
   };
 
   const handleSave = () => {
-    if (!name) return;
+    if (!name) {
+      addToast('O nome do treino é obrigatório.', 'error');
+      return;
+    }
     
     const workoutData = {
       name,
@@ -45,10 +52,19 @@ export default function Workouts() {
 
     if (editingId) {
       updateWorkout(editingId, workoutData);
+      addToast('Treino atualizado com sucesso!', 'success');
     } else {
       addWorkout(workoutData);
+      addToast('Treino criado com sucesso!', 'success');
     }
     resetForm();
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este treino?')) {
+      deleteWorkout(id);
+      addToast('Treino excluído com sucesso!', 'success');
+    }
   };
 
   const startEdit = (workout: Workout) => {
@@ -304,23 +320,47 @@ export default function Workouts() {
                   key={workout.id} 
                   workout={workout} 
                   onEdit={() => startEdit(workout)} 
-                  onDelete={() => deleteWorkout(workout.id)} 
+                  onDelete={() => handleDelete(workout.id)} 
+                  onStart={() => setActiveWorkout(workout)}
                 />
               ))
             )}
           </div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {activeWorkout && (
+          <motion.div
+            initial={{ opacity: 0, y: '100%' }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: '100%' }}
+            className="fixed inset-0 z-50"
+          >
+            <ActiveWorkoutOverlay 
+              workout={activeWorkout} 
+              onClose={() => setActiveWorkout(null)} 
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function WorkoutCard({ workout, onEdit, onDelete }: { workout: Workout, onEdit: () => void, onDelete: () => void } & React.Attributes) {
+interface WorkoutCardProps {
+  workout: Workout;
+  onEdit: () => void;
+  onDelete: () => void;
+  onStart: () => void;
+}
+
+const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onEdit, onDelete, onStart }) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <Card className="relative group" noPadding>
-      <div className="p-5" onClick={() => setExpanded(!expanded)}>
+      <div className="p-5 cursor-pointer" onClick={() => setExpanded(!expanded)}>
         <div className="flex justify-between items-start">
           <div className="flex gap-3">
             <div className="p-3 bg-blue-500/10 rounded-xl text-blue-500 h-fit">
@@ -349,6 +389,13 @@ function WorkoutCard({ workout, onEdit, onDelete }: { workout: Workout, onEdit: 
             className="bg-black/20 border-t border-white/5 px-5 overflow-hidden"
           >
             <div className="py-4 space-y-4">
+              <Button 
+                className="w-full mb-4 bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-900/20"
+                onClick={(e) => { e.stopPropagation(); onStart(); }}
+              >
+                <Play size={18} fill="currentColor" className="mr-2" /> Iniciar Treino Agora
+              </Button>
+
               {workout.exercises.map((ex, i) => (
                 <div key={i} className="text-sm text-gray-300 border-b border-white/5 last:border-0 pb-3 last:pb-0">
                   <div className="flex justify-between font-medium mb-1">
@@ -366,7 +413,7 @@ function WorkoutCard({ workout, onEdit, onDelete }: { workout: Workout, onEdit: 
                 </div>
               ))}
               
-              <div className="flex justify-end gap-2 mt-4 pt-2">
+              <div className="flex justify-end gap-2 mt-4 pt-2 border-t border-white/5">
                 <Button size="sm" variant="danger" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
                   <Trash2 size={14} /> Excluir
                 </Button>

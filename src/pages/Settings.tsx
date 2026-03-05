@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useApp } from '../context';
+import { useToast } from '../context/ToastContext';
 import { Card, Button, Input } from '../components/ui';
 import { Bell, Moon, Trash2, User, Droplets, Target, Save, Camera, Upload } from 'lucide-react';
 import { InstallPWA } from '../components/InstallPWA';
@@ -8,6 +9,7 @@ import { getRoutineForActivityLevel } from '../utils/routines';
 
 export default function Settings() {
   const { settings, updateSettings, resetData, setRoutine } = useApp();
+  const { addToast } = useToast();
   const [localSettings, setLocalSettings] = React.useState(settings);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -18,7 +20,7 @@ export default function Settings() {
 
   const handleSave = () => {
     updateSettings(localSettings);
-    alert('Configurações salvas com sucesso!');
+    addToast('Configurações salvas com sucesso!', 'success');
   };
 
   const handleGenerateRoutine = () => {
@@ -26,7 +28,7 @@ export default function Settings() {
       const { workouts, meals } = getRoutineForActivityLevel(localSettings.activityLevel);
       setRoutine(workouts, meals);
       updateSettings({ activityLevel: localSettings.activityLevel });
-      alert('Rotina gerada com sucesso! Verifique as abas de Treinos e Alimentação.');
+      addToast('Rotina gerada com sucesso!', 'success');
     }
   };
 
@@ -244,7 +246,7 @@ export default function Settings() {
             if (Notification.permission === 'granted') {
               new Notification("Teste de Notificação 🔔", {
                 body: "Se você está vendo isso, as notificações estão funcionando perfeitamente!",
-                icon: '/vite.svg'
+                icon: '/icon.svg'
               });
             } else {
               requestNotificationPermission();
@@ -262,6 +264,78 @@ export default function Settings() {
       <Button className="w-full" size="lg" onClick={handleSave}>
         <Save size={20} /> Salvar Alterações
       </Button>
+
+      <Card>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-purple-500/20 rounded-full text-purple-400">
+            <Save size={20} />
+          </div>
+          <h2 className="font-semibold">Dados e Backup</h2>
+        </div>
+        
+        <div className="space-y-3">
+          <Button 
+            variant="secondary" 
+            className="w-full justify-start" 
+            onClick={() => {
+              const dataStr = JSON.stringify(localStorage, null, 2);
+              const blob = new Blob([dataStr], { type: "application/json" });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `focusfit_backup_${new Date().toISOString().split('T')[0]}.json`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+          >
+            <Save size={18} className="mr-2" /> Exportar Backup (JSON)
+          </Button>
+          
+          <div className="relative">
+            <Button 
+              variant="secondary" 
+              className="w-full justify-start"
+              onClick={() => document.getElementById('import-file')?.click()}
+            >
+              <Upload size={18} className="mr-2" /> Importar Backup
+            </Button>
+            <input 
+              id="import-file"
+              type="file" 
+              accept=".json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                  try {
+                    const json = JSON.parse(event.target?.result as string);
+                    if (confirm('Isso substituirá todos os seus dados atuais. Tem certeza?')) {
+                      // Clear current data
+                      localStorage.clear();
+                      // Restore data
+                      Object.keys(json).forEach(key => {
+                        localStorage.setItem(key, json[key]);
+                      });
+                      addToast('Dados restaurados com sucesso! O app será recarregado.', 'success');
+                      setTimeout(() => window.location.reload(), 1500);
+                    }
+                  } catch (err) {
+                    addToast('Erro ao ler arquivo de backup.', 'error');
+                  }
+                };
+                reader.readAsText(file);
+              }}
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Salve seus dados periodicamente para não perder seu progresso.
+          </p>
+        </div>
+      </Card>
 
       <div className="pt-6 border-t border-white/10">
         <h3 className="text-red-500 font-semibold mb-3 text-sm">Zona de Perigo</h3>

@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AppState, Workout, Meal, UserSettings, DailyLog, Exercise, ExerciseLog, Achievement } from './types';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { AppState, Workout, Meal, UserSettings, DailyLog, Exercise, ExerciseLog, Achievement, Alarm } from './types';
 import { generateId } from './utils';
 import { calculateWaterGoal } from './utils/calculations';
 
@@ -102,10 +102,11 @@ const INITIAL_STATE: AppState = {
         return totalCompleted >= 10;
       }
     }
-  ]
+  ],
+  alarms: []
 };
 
-  interface AppContextType extends AppState {
+interface AppContextType extends AppState {
   addWorkout: (workout: Omit<Workout, 'id' | 'completedDates'>) => void;
   updateWorkout: (id: string, workout: Partial<Workout>) => void;
   deleteWorkout: (id: string) => void;
@@ -124,6 +125,14 @@ const INITIAL_STATE: AppState = {
   setRoutine: (workouts: Workout[], meals: Meal[]) => void;
 
   resetData: () => void;
+
+  // Alarms
+  addAlarm: (alarm: Omit<Alarm, 'id'>) => void;
+  updateAlarm: (id: string, alarm: Partial<Alarm>) => void;
+  deleteAlarm: (id: string) => void;
+  toggleAlarm: (id: string) => void;
+  ringingAlarm: Alarm | null;
+  stopAlarm: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -144,11 +153,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }),
         // Ensure new fields exist if they were missing in old data
         exerciseLogs: parsed.exerciseLogs || [],
+        alarms: parsed.alarms || [],
         settings: { ...DEFAULT_SETTINGS, ...parsed.settings }
       };
     }
     return INITIAL_STATE;
   });
+
+  const [ringingAlarm, setRingingAlarm] = useState<Alarm | null>(null);
+  const lastTriggeredRef = useRef<string | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => {
+    const initAudio = () => {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+    };
+    
+    document.addEventListener('click', initAudio, { once: true });
+    document.addEventListener('touchstart', initAudio, { once: true });
+    
+    return () => {
+      document.removeEventListener('click', initAudio);
+      document.removeEventListener('touchstart', initAudio);
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -160,8 +193,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const newAchievements = state.achievements.map(achievement => {
       if (!achievement.unlockedAt && achievement.condition(state)) {
         changed = true;
-        // In a real app, we'd use a toast notification system here
-        // alert(`🏆 Conquista Desbloqueada: ${achievement.title}!`); 
         return { ...achievement, unlockedAt: new Date().toISOString() };
       }
       return achievement;
@@ -170,7 +201,111 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (changed) {
       setState(prev => ({ ...prev, achievements: newAchievements }));
     }
-  }, [state.workouts, state.logs, state.meals]); // Dependencies that trigger achievement checks
+  }, [state.workouts, state.logs, state.meals, state.settings]);
+
+  // Check Alarms
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const currentHour = now.getHours().toString().padStart(2, '0');
+      const currentMinute = now.getMinutes().toString().padStart(2, '0');
+      const currentTime = `${currentHour}:${currentMinute}`;
+      
+      if (lastTriggeredRef.current === currentTime) return;
+
+      const currentDay = now.getDay(); // 0 (Sun) - 6 (Sat)
+
+      state.alarms.forEach(alarm => {
+        if (alarm.enabled && alarm.time === currentTime && alarm.days.includes(currentDay)) {
+          triggerAlarm(alarm);
+        }
+      });
+      
+      lastTriggeredRef.current = currentTime;
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [state.alarms]);
+
+  const triggerAlarm = (alarm: Alarm) => {
+    setRingingAlarm(alarm);
+    
+    if (alarm.soundEnabled) {
+      // Clear any existing sound loop before starting a new one
+      if ((window as any)._alarmInterval) {
+        clearInterval((window as any)._alarmInterval);
+      }
+      playAlarmSound();
+    }
+
+    if (alarm.notificationEnabled && Notification.permission === 'granted') {
+      new Notification(`⏰ Alarme: ${alarm.label}`, {
+        body: `Hora do alarme! ${alarm.time}`,
+        icon: '/icon.svg',
+        requireInteraction: true
+      });
+    }
+  };
+
+  const playAlarmSound = () => {
+    // Create a simple beep using Web Audio API to avoid asset dependencies
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    const ctx = audioCtxRef.current;
+    
+    // Create oscillator
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(440, ctx.currentTime); // A4
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.5); // A5
+    
+    // Pulse pattern
+    gain.gain.setValueAtTime(0.5, ctx.currentTime);
+    gain.gain.setValueAtTime(0, ctx.currentTime + 0.5);
+    gain.gain.setValueAtTime(0.5, ctx.currentTime + 1);
+    gain.gain.setValueAtTime(0, ctx.currentTime + 1.5);
+    
+    osc.start();
+    
+    // Loop the sound by creating a loop function if we wanted, 
+    // but for now let's just play a 2-second alert pattern repeatedly
+    // Actually, let's just play a long pattern or loop it.
+    // Since we need to stop it, we should store the context/oscillator.
+    // For simplicity, let's just make a long annoying sound until stopped.
+    
+    // Better approach: Use an HTML5 Audio element with a data URI if possible, 
+    // or just rely on the oscillator for a few seconds.
+    // But the user wants a "complete" alarm clock, so it should ring until stopped.
+    
+    // Let's use an interval to repeat the beep
+    const beepInterval = setInterval(() => {
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.type = 'square';
+        osc2.frequency.value = 880;
+        gain2.gain.value = 0.3;
+        osc2.start();
+        osc2.stop(ctx.currentTime + 0.5);
+    }, 1000);
+
+    // Store cleanup in a ref or state to stop it later
+    (window as any)._alarmInterval = beepInterval;
+  };
+
+  const stopAlarm = () => {
+    setRingingAlarm(null);
+    if ((window as any)._alarmInterval) {
+        clearInterval((window as any)._alarmInterval);
+        (window as any)._alarmInterval = null;
+    }
+  };
 
   // --- Routine ---
   const setRoutine = (workouts: Workout[], meals: Meal[]) => {
@@ -345,6 +480,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // --- Alarms ---
+  const addAlarm = (alarm: Omit<Alarm, 'id'>) => {
+    setState(prev => ({
+      ...prev,
+      alarms: [...prev.alarms, { ...alarm, id: generateId() }]
+    }));
+  };
+
+  const updateAlarm = (id: string, updates: Partial<Alarm>) => {
+    setState(prev => ({
+      ...prev,
+      alarms: prev.alarms.map(a => a.id === id ? { ...a, ...updates } : a)
+    }));
+  };
+
+  const deleteAlarm = (id: string) => {
+    setState(prev => ({
+      ...prev,
+      alarms: prev.alarms.filter(a => a.id !== id)
+    }));
+  };
+
+  const toggleAlarm = (id: string) => {
+    setState(prev => ({
+      ...prev,
+      alarms: prev.alarms.map(a => a.id === id ? { ...a, enabled: !a.enabled } : a)
+    }));
+  };
+
   return (
     <AppContext.Provider value={{
       ...state,
@@ -360,7 +524,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       logWater,
       logWeight,
       setRoutine,
-      resetData
+      resetData,
+      addAlarm,
+      updateAlarm,
+      deleteAlarm,
+      toggleAlarm,
+      ringingAlarm,
+      stopAlarm
     }}>
       {children}
     </AppContext.Provider>

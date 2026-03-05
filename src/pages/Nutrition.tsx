@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context';
+import { useToast } from '../context/ToastContext';
 import { Card, Button, Input } from '../components/ui';
 import { Plus, Trash2, Utensils, Droplets, Save } from 'lucide-react';
 import { Meal } from '../types';
@@ -9,6 +10,7 @@ import { calculateBMR, calculateTDEE, calculateMacros } from '../utils/calculati
 
 export default function Nutrition() {
   const { meals, addMeal, deleteMeal, updateMeal, settings, logs, logWater } = useApp();
+  const { addToast } = useToast();
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
@@ -51,7 +53,10 @@ export default function Nutrition() {
   };
 
   const handleSave = () => {
-    if (!name) return;
+    if (!name) {
+      addToast('O nome da refeição é obrigatório.', 'error');
+      return;
+    }
     
     const mealData = {
       name,
@@ -65,10 +70,19 @@ export default function Nutrition() {
 
     if (editingId) {
       updateMeal(editingId, mealData);
+      addToast('Refeição atualizada com sucesso!', 'success');
     } else {
       addMeal(mealData);
+      addToast('Refeição criada com sucesso!', 'success');
     }
     resetForm();
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('Tem certeza que deseja excluir esta refeição?')) {
+      deleteMeal(id);
+      addToast('Refeição excluída com sucesso!', 'success');
+    }
   };
 
   const startEdit = (meal: Meal) => {
@@ -238,12 +252,16 @@ export default function Nutrition() {
                       <span className="text-yellow-400">G: {meal.fats || 0}g</span>
                     </div>
                   </div>
-                </div>
-                
-                {/* Actions overlay on hover/focus */}
-                <div className="absolute right-0 top-0 bottom-0 flex items-center pr-4 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-l from-black/80 to-transparent pl-10">
-                  <button onClick={() => startEdit(meal)} className="p-2 text-blue-400 hover:text-blue-300"><Save size={18} /></button>
-                  <button onClick={() => deleteMeal(meal.id)} className="p-2 text-red-400 hover:text-red-300"><Trash2 size={18} /></button>
+
+                  {/* Actions */}
+                  <div className="flex flex-col gap-1">
+                    <button onClick={() => startEdit(meal)} className="p-2 text-gray-500 hover:text-blue-400 transition-colors">
+                      <Save size={18} />
+                    </button>
+                    <button onClick={() => handleDelete(meal.id)} className="p-2 text-gray-500 hover:text-red-400 transition-colors">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               </Card>
             ))}
