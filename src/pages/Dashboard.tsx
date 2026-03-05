@@ -8,6 +8,9 @@ import { motion } from 'motion/react';
 import { cn } from '../utils';
 import { Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
+import { LevelProgress } from '../components/LevelProgress';
+import { QuoteOfTheDay } from '../components/QuoteOfTheDay';
+import { ActivityHeatmap } from '../components/ActivityHeatmap';
 
 export default function Dashboard() {
   const { settings, workouts, meals, logs, logWater, toggleWorkoutCompletion } = useApp();
@@ -103,7 +106,7 @@ export default function Dashboard() {
   const insight = getDailyInsight();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       {/* Header */}
       <header className="flex justify-between items-center">
         <div>
@@ -120,6 +123,12 @@ export default function Dashboard() {
           </div>
         </Link>
       </header>
+
+      {/* Gamification Section */}
+      <section className="space-y-4">
+        <LevelProgress level={settings.level || 1} xp={settings.xp || 0} />
+        <QuoteOfTheDay />
+      </section>
 
       {/* Daily Insight */}
       <motion.div 
@@ -251,33 +260,9 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* Consistency */}
+      {/* Activity Heatmap */}
       <section>
-        <h2 className="text-lg font-semibold mb-3">Consistência</h2>
-        <Card className="flex justify-between items-center p-4">
-          {[0, 1, 2, 3, 4, 5, 6].map((dayOffset) => {
-            const date = new Date();
-            date.setDate(date.getDate() - (6 - dayOffset));
-            const dateStr = format(date, 'yyyy-MM-dd');
-            const dayLetter = format(date, 'EEEEE', { locale: ptBR }).toUpperCase();
-            
-            // Check if any workout was done on this date
-            const hasWorkout = workouts.some(w => w.completedDates.includes(dateStr));
-            const isToday = dateStr === today;
-
-            return (
-              <div key={dayOffset} className="flex flex-col items-center gap-2">
-                <div className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all",
-                  hasWorkout ? "bg-green-500 text-white shadow-lg shadow-green-500/20" : "bg-white/5 text-gray-600",
-                  isToday && !hasWorkout && "border border-blue-500 text-blue-500"
-                )}>
-                  {hasWorkout ? <Trophy size={12} /> : dayLetter}
-                </div>
-              </div>
-            );
-          })}
-        </Card>
+        <ActivityHeatmap logs={logs} workouts={workouts} />
       </section>
     </div>
   );

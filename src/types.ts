@@ -69,6 +69,8 @@ export interface UserSettings {
     carbs: number;
     fats: number;
   };
+  xp?: number;
+  level?: number;
 }
 
 export interface DailyLog {

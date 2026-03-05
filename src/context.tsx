@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef } from 'r
 import { AppState, Workout, Meal, UserSettings, DailyLog, Exercise, ExerciseLog, Achievement, Alarm } from './types';
 import { generateId } from './utils';
 import { calculateWaterGoal } from './utils/calculations';
+import confetti from 'canvas-confetti';
 
 const STORAGE_KEY = 'focusfit_data_v1';
 
@@ -20,7 +21,9 @@ const DEFAULT_SETTINGS: UserSettings = {
     protein: 150,
     carbs: 200,
     fats: 60
-  }
+  },
+  xp: 0,
+  level: 1
 };
 
 const INITIAL_STATE: AppState = {
@@ -133,6 +136,7 @@ interface AppContextType extends AppState {
   toggleAlarm: (id: string) => void;
   ringingAlarm: Alarm | null;
   stopAlarm: () => void;
+  addXp: (amount: number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -307,6 +311,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // --- XP Helper ---
+  const calculateNewSettingsWithXp = (settings: UserSettings, amount: number) => {
+    const currentXp = settings.xp || 0;
+    const currentLevel = settings.level || 1;
+    const newXp = currentXp + amount;
+    const newLevel = 1 + Math.floor(newXp / 500); // 500 XP per level
+
+    if (newLevel > currentLevel) {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    }
+
+    return { ...settings, xp: newXp, level: newLevel };
+  };
+
+  const addXp = (amount: number) => {
+    setState(prev => ({
+      ...prev,
+      settings: calculateNewSettingsWithXp(prev.settings, amount)
+    }));
+  };
+
   // --- Routine ---
   const setRoutine = (workouts: Workout[], meals: Meal[]) => {
     setState(prev => ({
@@ -362,6 +391,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
          if (isNowCompleted) {
             newSettings = { ...prev.settings, waterGoal: newGoal };
          }
+      }
+
+      // Add XP if completed
+      if (isNowCompleted) {
+        newSettings = calculateNewSettingsWithXp(newSettings, 50); // 50 XP for workout
       }
 
       // Log exercises if completed
@@ -420,19 +454,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleMealCompletion = (id: string, date: string) => {
-    setState(prev => ({
-      ...prev,
-      meals: prev.meals.map(m => {
-        if (m.id !== id) return m;
-        const isCompleted = m.completedDates.includes(date);
-        return {
-          ...m,
-          completedDates: isCompleted
-            ? m.completedDates.filter(d => d !== date)
-            : [...m.completedDates, date]
-        };
-      })
-    }));
+    setState(prev => {
+      const meal = prev.meals.find(m => m.id === id);
+      const isNowCompleted = !meal?.completedDates.includes(date);
+      
+      let newSettings = prev.settings;
+      if (isNowCompleted) {
+        newSettings = calculateNewSettingsWithXp(newSettings, 10); // 10 XP for meal
+      }
+
+      return {
+        ...prev,
+        settings: newSettings,
+        meals: prev.meals.map(m => {
+          if (m.id !== id) return m;
+          const isCompleted = m.completedDates.includes(date);
+          return {
+            ...m,
+            completedDates: isCompleted
+              ? m.completedDates.filter(d => d !== date)
+              : [...m.completedDates, date]
+          };
+        })
+      };
+    });
   };
 
   // --- Settings ---
@@ -447,11 +492,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logWater = (date: string, amount: number) => {
     setState(prev => {
       const currentLog = prev.logs[date] || { date, waterIntake: 0 };
+      const newWaterIntake = Math.max(0, currentLog.waterIntake + amount);
+      
+      let newSettings = prev.settings;
+      // Add XP only if adding water (not removing)
+      if (amount > 0) {
+        newSettings = calculateNewSettingsWithXp(newSettings, 5); // 5 XP for water
+      }
+
       return {
         ...prev,
+        settings: newSettings,
         logs: {
           ...prev.logs,
-          [date]: { ...currentLog, waterIntake: Math.max(0, currentLog.waterIntake + amount) }
+          [date]: { ...currentLog, waterIntake: newWaterIntake }
         }
       };
     });
